@@ -5,11 +5,11 @@ PUBLIC_URL ?= /
 build:
 	trunk build subxt.html --release --public-url $(PUBLIC_URL)
 	mv dist/index.html dist/subxt.html
-	cp index.html dist/index.html
+	npm run build
+	cp index.html papi.html dist/
 
 serve: build
-	@echo "Serving at http://127.0.0.1:8081/"
-	cd dist && python3 -m http.server 8081
+	npx serve dist -l 8081
 
 dev:
 	trunk serve subxt.html --open

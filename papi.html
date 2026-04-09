@@ -26,15 +26,11 @@
         status.textContent = `Loading modules... (${elapsed()}s)`;
 
         const [
-          { startFromWorker },
-          { getSmProvider },
-          { createClient },
+          { startFromWorker, getSmProvider, createClient },
           polkadotSpec,
           assetHubSpec,
         ] = await Promise.all([
-          import("https://esm.sh/polkadot-api/smoldot/from-worker"),
-          import("https://esm.sh/polkadot-api/sm-provider"),
-          import("https://esm.sh/polkadot-api"),
+          import("./papi-bundle.js"),
           fetch("polkadot.json").then(r => r.text()),
           fetch("asset_hub.json").then(r => r.text()),
         ]);
