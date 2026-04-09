@@ -33,9 +33,16 @@ fn el(id: &str) -> web_sys::Element {
 }
 
 fn query_param(key: &str) -> Option<String> {
-    let search = web_sys::window().unwrap().location().search().ok()?;
-    let params = web_sys::UrlSearchParams::new_with_str(&search).ok()?;
-    params.get(key)
+    let loc = web_sys::window().unwrap().location();
+    // Try query string first, fall back to hash (serve strips query params on .html redirects)
+    for raw in [loc.search().ok(), loc.hash().ok().map(|h| h.replacen('#', "?", 1))] {
+        if let Some(s) = raw {
+            if let Some(v) = web_sys::UrlSearchParams::new_with_str(&s).ok()?.get(key) {
+                return Some(v);
+            }
+        }
+    }
+    None
 }
 
 async fn run_light_client() {
