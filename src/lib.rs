@@ -9,11 +9,18 @@ fn now() -> f64 {
     web_sys::window().unwrap().performance().unwrap().now() / 1000.0
 }
 
+fn mark_block() {
+    let window = web_sys::window().unwrap();
+    let ms = web_sys::window().unwrap().performance().unwrap().now();
+    js_sys::Reflect::set(&window, &"_lastBlockTime".into(), &ms.into()).ok();
+}
+
 fn append_block(list: &web_sys::Element, number: u64, hash: impl std::fmt::Display) {
     let doc = web_sys::window().unwrap().document().unwrap();
     let li = doc.create_element("li").unwrap();
     li.set_text_content(Some(&format!("#{number} - {hash}")));
     list.prepend_with_node_1(&li).unwrap();
+    mark_block();
 }
 
 fn el(id: &str) -> web_sys::Element {

@@ -2328,6 +2328,7 @@ name = "subxt-wasm-demo"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "js-sys",
  "subxt",
  "wasm-bindgen",
  "wasm-bindgen-futures",
