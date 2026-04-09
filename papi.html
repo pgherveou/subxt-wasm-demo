@@ -57,7 +57,7 @@
         });
 
         status.textContent = `Creating client... (${elapsed()}s)`;
-        const client = createClient(getSmProvider(assetHub));
+        const client = createClient(getSmProvider(() => assetHub));
 
         let initTime = elapsed();
         let firstBlockTime = null;

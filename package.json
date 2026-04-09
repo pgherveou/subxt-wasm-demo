@@ -5,7 +5,7 @@
     "build": "node build.js"
   },
   "dependencies": {
-    "polkadot-api": "^1"
+    "polkadot-api": "^2.0.0-rc.6"
   },
   "devDependencies": {
     "esbuild": "^0.25"
