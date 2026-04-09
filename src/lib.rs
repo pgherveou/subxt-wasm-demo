@@ -64,12 +64,12 @@ async fn run_light_client() {
 
     status.set_text_content(Some(&format!("Ready in {:.1}s, syncing...", init_time)));
 
-    let mut blocks = api.stream_best_blocks().await.unwrap();
+    let mut blocks = api.stream_all_blocks().await.unwrap();
     let mut first_block_time = None;
     while let Some(Ok(block)) = blocks.next().await {
         let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
         status.set_text_content(Some(&format!(
-            "Best: #{} (init {:.1}s, first block {:.1}s)",
+            "#{} (init {:.1}s, first block {:.1}s)",
             block.number(), init_time, fbt
         )));
         append_block(&list, block.number(), block.hash());
@@ -87,12 +87,12 @@ async fn run_rpc(url: &str) {
 
     status.set_text_content(Some(&format!("Connected in {:.1}s, waiting for blocks...", init_time)));
 
-    let mut blocks = api.stream_best_blocks().await.unwrap();
+    let mut blocks = api.stream_all_blocks().await.unwrap();
     let mut first_block_time = None;
     while let Some(Ok(block)) = blocks.next().await {
         let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
         status.set_text_content(Some(&format!(
-            "Best: #{} (init {:.1}s, first block {:.1}s)",
+            "#{} (init {:.1}s, first block {:.1}s)",
             block.number(), init_time, fbt
         )));
         append_block(&list, block.number(), block.hash());
