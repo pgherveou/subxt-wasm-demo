@@ -14,8 +14,16 @@
   <body>
     <h1>PAPI Light Client - Asset Hub</h1>
     <p id="status" class="status">Starting...</p>
+    <p id="timer" class="status"></p>
     <ul id="blocks"></ul>
 
+    <script>
+      setInterval(() => {
+        if (window._lastBlockTime == null) return;
+        const ago = ((performance.now() - window._lastBlockTime) / 1000).toFixed(1);
+        document.getElementById("timer").textContent = `${ago}s since last block`;
+      }, 100);
+    </script>
     <script type="module">
       const status = document.getElementById("status");
       const list = document.getElementById("blocks");
@@ -64,6 +72,8 @@
 
           if (!firstBlockTime) firstBlockTime = elapsed();
           status.textContent = `Best: #${best.number} (init ${initTime}s, first block ${firstBlockTime}s)`;
+
+          window._lastBlockTime = performance.now();
 
           const li = document.createElement("li");
           const h = best.hash;

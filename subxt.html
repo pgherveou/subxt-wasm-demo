@@ -22,6 +22,15 @@
       else document.getElementById("title").textContent = "Subxt Light Client - Asset Hub";
     </script>
     <p id="status" class="status">Starting...</p>
+    <p id="timer" class="status"></p>
+    <script>
+      window._lastBlockTime = null;
+      setInterval(() => {
+        if (window._lastBlockTime == null) return;
+        const ago = ((performance.now() - window._lastBlockTime) / 1000).toFixed(1);
+        document.getElementById("timer").textContent = `${ago}s since last block`;
+      }, 100);
+    </script>
     <ul id="blocks"></ul>
   </body>
 </html>
