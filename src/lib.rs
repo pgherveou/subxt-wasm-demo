@@ -25,8 +25,13 @@ fn el(id: &str) -> web_sys::Element {
         .unwrap()
 }
 
-#[wasm_bindgen(start)]
-pub async fn main() {
+fn query_param(key: &str) -> Option<String> {
+    let search = web_sys::window().unwrap().location().search().ok()?;
+    let params = web_sys::UrlSearchParams::new_with_str(&search).ok()?;
+    params.get(key)
+}
+
+async fn run_light_client() {
     let status = el("status");
     let list = el("blocks");
     let t0 = now();
@@ -54,5 +59,37 @@ pub async fn main() {
             block.number(), init_time, fbt
         )));
         append_block(&list, block.number(), block.hash());
+    }
+}
+
+async fn run_rpc(url: &str) {
+    let status = el("status");
+    let list = el("blocks");
+    let t0 = now();
+
+    status.set_text_content(Some(&format!("Connecting to {url}...")));
+    let api = OnlineClient::<PolkadotConfig>::from_url(url).await.unwrap();
+    let init_time = now() - t0;
+
+    status.set_text_content(Some(&format!("Connected in {:.1}s, waiting for blocks...", init_time)));
+
+    let mut blocks = api.stream_best_blocks().await.unwrap();
+    let mut first_block_time = None;
+    while let Some(Ok(block)) = blocks.next().await {
+        let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
+        status.set_text_content(Some(&format!(
+            "Best: #{} (init {:.1}s, first block {:.1}s)",
+            block.number(), init_time, fbt
+        )));
+        append_block(&list, block.number(), block.hash());
+    }
+}
+
+#[wasm_bindgen(start)]
+pub async fn main() {
+    if let Some(url) = query_param("rpc") {
+        run_rpc(&url).await;
+    } else {
+        run_light_client().await;
     }
 }

@@ -15,7 +15,12 @@
     </style>
   </head>
   <body>
-    <h1>Subxt Light Client - Asset Hub</h1>
+    <h1 id="title">Subxt - Asset Hub</h1>
+    <script>
+      const p = new URLSearchParams(location.search);
+      if (p.has("rpc")) document.getElementById("title").textContent = "Subxt RPC - Asset Hub";
+      else document.getElementById("title").textContent = "Subxt Light Client - Asset Hub";
+    </script>
     <p id="status" class="status">Starting...</p>
     <ul id="blocks"></ul>
   </body>
