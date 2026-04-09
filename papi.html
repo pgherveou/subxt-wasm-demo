@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>PAPI Light Client - Asset Hub</title>
+    <style>
+      body { font-family: monospace; margin: 2rem; background: #1a1a2e; color: #e0e0e0; }
+      h1 { color: #e94560; }
+      .status { color: #888; font-size: 0.85rem; }
+      ul { list-style: none; padding: 0; max-height: 80vh; overflow-y: auto; }
+      li { padding: 0.3rem 0; border-bottom: 1px solid #333; font-size: 0.85rem; }
+    </style>
+  </head>
+  <body>
+    <h1>PAPI Light Client - Asset Hub</h1>
+    <p id="status" class="status">Starting...</p>
+    <ul id="blocks"></ul>
+
+    <script type="module">
+      const status = document.getElementById("status");
+      const list = document.getElementById("blocks");
+      const t0 = performance.now() / 1000;
+      const elapsed = () => ((performance.now() / 1000) - t0).toFixed(1);
+
+      try {
+        status.textContent = `Loading modules... (${elapsed()}s)`;
+
+        const [
+          { startFromWorker },
+          { getSmProvider },
+          { createClient },
+          polkadotSpec,
+          assetHubSpec,
+        ] = await Promise.all([
+          import("https://esm.sh/polkadot-api/smoldot/from-worker"),
+          import("https://esm.sh/polkadot-api/sm-provider"),
+          import("https://esm.sh/polkadot-api"),
+          fetch("polkadot.json").then(r => r.text()),
+          fetch("asset_hub.json").then(r => r.text()),
+        ]);
+
+        status.textContent = `Starting smoldot worker... (${elapsed()}s)`;
+        const worker = new Worker("smoldot-worker.js", { type: "module" });
+        const smoldot = startFromWorker(worker);
+
+        status.textContent = `Adding relay chain... (${elapsed()}s)`;
+        const relayChain = await smoldot.addChain({ chainSpec: polkadotSpec });
+
+        status.textContent = `Adding Asset Hub... (${elapsed()}s)`;
+        const assetHub = smoldot.addChain({
+          chainSpec: assetHubSpec,
+          potentialRelayChains: [relayChain],
+        });
+
+        status.textContent = `Creating client... (${elapsed()}s)`;
+        const client = createClient(getSmProvider(assetHub));
+
+        let initTime = elapsed();
+        let firstBlockTime = null;
+
+        status.textContent = `Ready in ${initTime}s, syncing...`;
+
+        client.bestBlocks$.subscribe((blocks) => {
+          const best = blocks[0];
+          if (!firstBlockTime) firstBlockTime = elapsed();
+
+          status.textContent = `Best: #${best.number} (init ${initTime}s, first block ${firstBlockTime}s)`;
+
+          // Clear and show latest best block
+          const li = document.createElement("li");
+          li.textContent = `#${best.number} - ${best.hash}`;
+          list.prepend(li);
+        });
+      } catch (e) {
+        status.textContent = `Error: ${e.message}`;
+        console.error(e);
+      }
+    </script>
+  </body>
+</html>
