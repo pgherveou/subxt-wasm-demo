@@ -33,9 +33,16 @@ fn el(id: &str) -> web_sys::Element {
 }
 
 fn query_param(key: &str) -> Option<String> {
-    let search = web_sys::window().unwrap().location().search().ok()?;
-    let params = web_sys::UrlSearchParams::new_with_str(&search).ok()?;
-    params.get(key)
+    let loc = web_sys::window().unwrap().location();
+    // Try query string first, fall back to hash (serve strips query params on .html redirects)
+    for raw in [loc.search().ok(), loc.hash().ok().map(|h| h.replacen('#', "?", 1))] {
+        if let Some(s) = raw {
+            if let Some(v) = web_sys::UrlSearchParams::new_with_str(&s).ok()?.get(key) {
+                return Some(v);
+            }
+        }
+    }
+    None
 }
 
 async fn run_light_client() {
@@ -57,12 +64,12 @@ async fn run_light_client() {
 
     status.set_text_content(Some(&format!("Ready in {:.1}s, syncing...", init_time)));
 
-    let mut blocks = api.stream_best_blocks().await.unwrap();
+    let mut blocks = api.stream_all_blocks().await.unwrap();
     let mut first_block_time = None;
     while let Some(Ok(block)) = blocks.next().await {
         let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
         status.set_text_content(Some(&format!(
-            "Best: #{} (init {:.1}s, first block {:.1}s)",
+            "#{} (init {:.1}s, first block {:.1}s)",
             block.number(), init_time, fbt
         )));
         append_block(&list, block.number(), block.hash());
@@ -80,12 +87,12 @@ async fn run_rpc(url: &str) {
 
     status.set_text_content(Some(&format!("Connected in {:.1}s, waiting for blocks...", init_time)));
 
-    let mut blocks = api.stream_best_blocks().await.unwrap();
+    let mut blocks = api.stream_all_blocks().await.unwrap();
     let mut first_block_time = None;
     while let Some(Ok(block)) = blocks.next().await {
         let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
         status.set_text_content(Some(&format!(
-            "Best: #{} (init {:.1}s, first block {:.1}s)",
+            "#{} (init {:.1}s, first block {:.1}s)",
             block.number(), init_time, fbt
         )));
         append_block(&list, block.number(), block.hash());
