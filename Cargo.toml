@@ -7,8 +7,8 @@ edition = "2024"
 crate-type = ["cdylib"]
 
 [dependencies]
-subxt = { version = "0.50.0", default-features = false, features = ["jsonrpsee", "web"] }
+subxt = { version = "0.50.0", default-features = false, features = ["light-client", "jsonrpsee", "web"] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 futures = "0.3"
-web-sys = { version = "0.3", features = ["Document", "Element", "HtmlElement", "Window"] }
+web-sys = { version = "0.3", features = ["Document", "Element", "HtmlElement", "Window", "Performance"] }

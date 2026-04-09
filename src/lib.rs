@@ -1,26 +1,58 @@
+use subxt::lightclient::LightClient;
 use subxt::{OnlineClient, PolkadotConfig};
 use wasm_bindgen::prelude::*;
 
+const POLKADOT_SPEC: &str = include_str!("../polkadot.json");
+const ASSET_HUB_SPEC: &str = include_str!("../asset_hub.json");
+
+fn now() -> f64 {
+    web_sys::window().unwrap().performance().unwrap().now() / 1000.0
+}
+
+fn append_block(list: &web_sys::Element, number: u64, hash: impl std::fmt::Display) {
+    let doc = web_sys::window().unwrap().document().unwrap();
+    let li = doc.create_element("li").unwrap();
+    li.set_text_content(Some(&format!("#{number} - {hash}")));
+    list.prepend_with_node_1(&li).unwrap();
+}
+
+fn el(id: &str) -> web_sys::Element {
+    web_sys::window()
+        .unwrap()
+        .document()
+        .unwrap()
+        .get_element_by_id(id)
+        .unwrap()
+}
+
 #[wasm_bindgen(start)]
 pub async fn main() {
-    let api = OnlineClient::<PolkadotConfig>::from_url("wss://rpc.polkadot.io:443")
+    let status = el("status");
+    let list = el("blocks");
+    let t0 = now();
+
+    status.set_text_content(Some("Starting light client (relay chain)..."));
+    let (lc, _relay_rpc) = LightClient::relay_chain(POLKADOT_SPEC).unwrap();
+
+    status.set_text_content(Some(&format!("Adding Asset Hub parachain... ({:.1}s)", now() - t0)));
+    let asset_hub_rpc = lc.parachain(ASSET_HUB_SPEC).unwrap();
+
+    status.set_text_content(Some(&format!("Fetching metadata... ({:.1}s)", now() - t0)));
+    let api = OnlineClient::<PolkadotConfig>::from_rpc_client(asset_hub_rpc)
         .await
-        .expect("Failed to connect");
+        .unwrap();
+    let init_time = now() - t0;
 
-    let doc = web_sys::window().unwrap().document().unwrap();
-    doc.get_element_by_id("status")
-        .unwrap()
-        .set_text_content(Some("Connected. Waiting for finalized blocks..."));
-    let list = doc.get_element_by_id("blocks").unwrap();
+    status.set_text_content(Some(&format!("Ready in {:.1}s, syncing...", init_time)));
 
-    let mut blocks = api.stream_blocks().await.unwrap();
-
+    let mut blocks = api.stream_best_blocks().await.unwrap();
+    let mut first_block_time = None;
     while let Some(Ok(block)) = blocks.next().await {
-        let number = block.number();
-        let hash = block.hash();
-
-        let li = doc.create_element("li").unwrap();
-        li.set_text_content(Some(&format!("#{number} - {hash}")));
-        list.prepend_with_node_1(&li).unwrap();
+        let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
+        status.set_text_content(Some(&format!(
+            "Best: #{} (init {:.1}s, first block {:.1}s)",
+            block.number(), init_time, fbt
+        )));
+        append_block(&list, block.number(), block.hash());
     }
 }
