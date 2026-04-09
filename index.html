@@ -2,19 +2,24 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Subxt Light Client</title>
-    <link data-trunk rel="rust" data-wasm-opt="z" />
+    <title>Subxt vs PAPI Light Client</title>
     <style>
-      body { font-family: monospace; margin: 2rem; background: #1a1a2e; color: #e0e0e0; }
-      h1 { color: #e94560; }
-      .status { color: #888; font-size: 0.85rem; }
-      ul { list-style: none; padding: 0; max-height: 80vh; overflow-y: auto; }
-      li { padding: 0.3rem 0; border-bottom: 1px solid #333; font-size: 0.85rem; }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
+      .header { display: flex; gap: 1rem; padding: 0.5rem 1rem; }
+      .header h2 { flex: 1; text-align: center; color: #e94560; font-size: 0.9rem; }
+      .frames { display: flex; flex: 1; gap: 2px; }
+      iframe { flex: 1; border: none; background: #1a1a2e; }
     </style>
   </head>
   <body>
-    <h1>Subxt Light Client - Asset Hub</h1>
-    <p id="status" class="status">Starting...</p>
-    <ul id="blocks"></ul>
+    <div class="header">
+      <h2>Subxt (smoldot via Rust/WASM)</h2>
+      <h2>PAPI (smoldot via JS Worker)</h2>
+    </div>
+    <div class="frames">
+      <iframe src="subxt.html"></iframe>
+      <iframe src="papi.html"></iframe>
+    </div>
   </body>
 </html>
