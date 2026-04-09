@@ -26,6 +26,7 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - run: cargo binstall trunk --no-confirm
 
+      - run: npm ci
       - run: PUBLIC_URL=/subxt-wasm-demo/ make build
 
       - uses: actions/upload-pages-artifact@v3
