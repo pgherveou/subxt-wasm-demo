@@ -21,7 +21,21 @@
     <div class="frames">
       <iframe src="subxt.html"></iframe>
       <iframe src="subxt.html#rpc=wss://polkadot-asset-hub-rpc.polkadot.io:443"></iframe>
-      <iframe src="papi.html"></iframe>
+      <iframe id="papi" src="about:blank"></iframe>
     </div>
+    <script>
+      // Start PAPI after subxt LC gets its first block, so their smoldots don't compete
+      const subxtFrame = document.querySelector("iframe[src='subxt.html']");
+      const poll = setInterval(() => {
+        try {
+          if (subxtFrame.contentWindow._lastBlockTime != null) {
+            clearInterval(poll);
+            document.getElementById("papi").src = "papi.html";
+          }
+        } catch(e) {} // cross-origin check may throw
+      }, 500);
+      // Fallback: load after 20s regardless
+      setTimeout(() => { clearInterval(poll); document.getElementById("papi").src = "papi.html"; }, 20000);
+    </script>
   </body>
 </html>
