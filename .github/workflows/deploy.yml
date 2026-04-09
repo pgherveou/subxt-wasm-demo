@@ -26,8 +26,7 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - run: cargo binstall trunk --no-confirm
 
-      - run: trunk build subxt.html --release --public-url /subxt-wasm-demo/
-      - run: mv dist/index.html dist/subxt.html && cp index.html dist/index.html
+      - run: PUBLIC_URL=/subxt-wasm-demo/ make build
 
       - uses: actions/upload-pages-artifact@v3
         with:

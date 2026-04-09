@@ -60,15 +60,18 @@
 
         status.textContent = `Ready in ${initTime}s, syncing...`;
 
+        let lastNumber = -1;
         client.bestBlocks$.subscribe((blocks) => {
           const best = blocks[0];
-          if (!firstBlockTime) firstBlockTime = elapsed();
+          if (best.number <= lastNumber) return;
+          lastNumber = best.number;
 
+          if (!firstBlockTime) firstBlockTime = elapsed();
           status.textContent = `Best: #${best.number} (init ${initTime}s, first block ${firstBlockTime}s)`;
 
-          // Clear and show latest best block
           const li = document.createElement("li");
-          li.textContent = `#${best.number} - ${best.hash}`;
+          const h = best.hash;
+          li.textContent = `#${best.number} - ${h.slice(0, 6)}\u2026${h.slice(-4)}`;
           list.prepend(li);
         });
       } catch (e) {
