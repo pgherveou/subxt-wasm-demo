@@ -24,10 +24,10 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - uses: cargo-bins/cargo-binstall@main
-      - run: cargo binstall trunk --no-confirm
+      - run: cargo binstall wasm-pack --no-confirm
 
       - run: npm ci
-      - run: PUBLIC_URL=/subxt-wasm-demo/ make build
+      - run: make build
 
       - uses: actions/upload-pages-artifact@v3
         with:
