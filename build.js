@@ -1,17 +1,14 @@
 import * as esbuild from "esbuild";
+import { cpSync } from "fs";
 
-await Promise.all([
-  esbuild.build({
-    entryPoints: ["papi-entry.js"],
-    bundle: true,
-    format: "esm",
-    outfile: "dist/papi-bundle.js",
-  }),
-  esbuild.build({
-    entryPoints: ["papi-worker-entry.js"],
-    bundle: true,
-    format: "esm",
-    ignoreAnnotations: true,
-    outfile: "dist/smoldot-worker.js",
-  }),
-]);
+// Bundle main.js + polkadot-api deps, keep wasm-pack output external
+await esbuild.build({
+  entryPoints: ["main.js"],
+  bundle: true,
+  format: "esm",
+  external: ["./pkg/*"],
+  outfile: "dist/app-bundle.js",
+});
+
+// Copy wasm-pack output to dist/pkg/
+cpSync("pkg", "dist/pkg", { recursive: true });

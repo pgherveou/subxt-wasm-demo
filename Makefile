@@ -3,16 +3,12 @@ PUBLIC_URL ?= /
 .PHONY: build serve dev clean
 
 build:
-	trunk build subxt.html --release --public-url $(PUBLIC_URL)
-	mv dist/index.html dist/subxt.html
+	wasm-pack build --target web --release
 	npm run build
-	cp index.html papi.html dist/
+	cp index.html polkadot.json asset_hub.json dist/
 
 serve: build
 	npx serve dist -l 8081
 
-dev:
-	trunk serve subxt.html --open
-
 clean:
-	rm -rf dist
+	rm -rf dist pkg target

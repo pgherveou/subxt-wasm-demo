@@ -2,40 +2,55 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Subxt vs PAPI Light Client</title>
+    <title>PAPI + WASM Provider - Asset Hub</title>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; height: 100vh; display: flex; flex-direction: column; }
-      .header { display: flex; gap: 1rem; padding: 0.5rem 1rem; }
-      .header h2 { flex: 1; text-align: center; color: #e94560; font-size: 0.9rem; }
-      .frames { display: flex; flex: 1; gap: 2px; }
-      iframe { flex: 1; border: none; background: #1a1a2e; }
+      body { font-family: monospace; margin: 2rem; background: #1a1a2e; color: #e0e0e0; }
+      h1 { color: #e94560; }
+      .status { color: #888; font-size: 0.85rem; }
+      .mode-links { font-size: 0.85rem; margin-bottom: 1rem; }
+      .mode-links a { color: #0fbcf9; text-decoration: none; }
+      .mode-links a:hover { text-decoration: underline; }
+      .mode-links a.active { color: #e94560; font-weight: bold; pointer-events: none; }
+      .account-info { background: #16213e; padding: 1rem; border-radius: 4px; margin: 1rem 0; font-size: 0.85rem; }
+      .account-info h3 { color: #e94560; margin: 0 0 0.5rem 0; font-size: 0.9rem; }
+      .account-info .addr { color: #0fbcf9; word-break: break-all; }
+      .account-info .field { margin: 0.3rem 0; }
+      .account-info .label { color: #888; }
+      .account-info .value { color: #e0e0e0; }
+      ul { list-style: none; padding: 0; max-height: 50vh; overflow-y: auto; }
+      li { padding: 0.3rem 0; border-bottom: 1px solid #333; font-size: 0.85rem; }
     </style>
   </head>
   <body>
-    <div class="header">
-      <h2>Subxt Light Client</h2>
-      <h2>Subxt RPC</h2>
-      <h2>PAPI Light Client</h2>
+    <h1 id="title">PAPI - Asset Hub</h1>
+    <p class="mode-links">
+      <a href="/" id="link-lc">WASM Light Client</a> |
+      <a href="/?rpc=wss://polkadot-asset-hub-rpc.polkadot.io" id="link-rpc">WebSocket RPC</a>
+    </p>
+    <p id="status" class="status">Starting...</p>
+    <p id="timer" class="status"></p>
+
+    <div id="account" class="account-info" style="display:none">
+      <h3>Account Balance (via PAPI)</h3>
+      <div class="field"><span class="label">Address: </span><span class="addr" id="acct-addr"></span></div>
+      <div class="field"><span class="label">Free: </span><span class="value" id="acct-free">...</span></div>
+      <div class="field"><span class="label">Reserved: </span><span class="value" id="acct-reserved">...</span></div>
+      <div class="field"><span class="label">Frozen: </span><span class="value" id="acct-frozen">...</span></div>
+      <div class="field"><span class="label">Nonce: </span><span class="value" id="acct-nonce">...</span></div>
     </div>
-    <div class="frames">
-      <iframe src="subxt.html"></iframe>
-      <iframe src="subxt.html#rpc=wss://polkadot-asset-hub-rpc.polkadot.io:443"></iframe>
-      <iframe id="papi" src="about:blank"></iframe>
-    </div>
+
+    <ul id="blocks"></ul>
+
     <script>
-      // Start PAPI after subxt LC gets its first block, so their smoldots don't compete
-      const subxtFrame = document.querySelector("iframe[src='subxt.html']");
-      const poll = setInterval(() => {
-        try {
-          if (subxtFrame.contentWindow._lastBlockTime != null) {
-            clearInterval(poll);
-            document.getElementById("papi").src = "papi.html";
-          }
-        } catch(e) {} // cross-origin check may throw
-      }, 500);
-      // Fallback: load after 20s regardless
-      setTimeout(() => { clearInterval(poll); document.getElementById("papi").src = "papi.html"; }, 20000);
+      const isRpc = new URLSearchParams(location.search).has("rpc");
+      document.getElementById(isRpc ? "link-rpc" : "link-lc").classList.add("active");
+
+      setInterval(() => {
+        if (window._lastBlockTime == null) return;
+        const ago = ((performance.now() - window._lastBlockTime) / 1000).toFixed(1);
+        document.getElementById("timer").textContent = `${ago}s since last block`;
+      }, 100);
     </script>
+    <script type="module" src="app-bundle.js"></script>
   </body>
 </html>

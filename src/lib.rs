@@ -1,109 +1,98 @@
-use subxt::lightclient::LightClient;
-use subxt::{OnlineClient, PolkadotConfig};
+mod platform;
+
+use platform::SubxtPlatform;
+use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
 
-const POLKADOT_SPEC: &str = include_str!("../polkadot.json");
-const ASSET_HUB_SPEC: &str = include_str!("../asset_hub.json");
-
-fn now() -> f64 {
-    web_sys::window().unwrap().performance().unwrap().now() / 1000.0
+/// A smoldot-based JSON-RPC provider for polkadot-api, fully implemented in WASM.
+///
+/// Usage from JS:
+/// ```js
+/// const provider = await WasmProvider.new(relaySpec, paraSpec);
+/// const jsonRpcProvider = (onMessage) => {
+///     provider.start((resp) => onMessage(JSON.parse(resp)));
+///     return {
+///         send: (msg) => provider.send(JSON.stringify(msg)),
+///         disconnect: () => provider.disconnect(),
+///     };
+/// };
+/// const client = createClient(jsonRpcProvider);
+/// ```
+#[wasm_bindgen]
+pub struct WasmProvider {
+    client: Arc<Mutex<smoldot_light::Client<SubxtPlatform>>>,
+    para_chain_id: smoldot_light::ChainId,
+    relay_chain_id: smoldot_light::ChainId,
+    responses: Option<smoldot_light::JsonRpcResponses<SubxtPlatform>>,
 }
 
-fn mark_block() {
-    let window = web_sys::window().unwrap();
-    let ms = web_sys::window().unwrap().performance().unwrap().now();
-    js_sys::Reflect::set(&window, &"_lastBlockTime".into(), &ms.into()).ok();
-}
+#[wasm_bindgen]
+impl WasmProvider {
+    /// Initialize smoldot with a relay chain and parachain.
+    /// Returns a promise that resolves to a WasmProvider.
+    #[wasm_bindgen(constructor)]
+    pub fn new(relay_spec: &str, para_spec: &str) -> Result<WasmProvider, JsError> {
+        let mut client = smoldot_light::Client::new(SubxtPlatform::new());
 
-fn append_block(list: &web_sys::Element, number: u64, hash: impl std::fmt::Display) {
-    let doc = web_sys::window().unwrap().document().unwrap();
-    let li = doc.create_element("li").unwrap();
-    li.set_text_content(Some(&format!("#{number} - {hash}")));
-    list.prepend_with_node_1(&li).unwrap();
-    mark_block();
-}
+        let relay = client.add_chain(smoldot_light::AddChainConfig {
+            specification: relay_spec,
+            json_rpc: smoldot_light::AddChainConfigJsonRpc::Disabled,
+            database_content: "",
+            potential_relay_chains: std::iter::empty(),
+            user_data: (),
+            statement_protocol_config: None,
+        }).map_err(|e| JsError::new(&format!("Failed to add relay chain: {e}")))?;
 
-fn el(id: &str) -> web_sys::Element {
-    web_sys::window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id(id)
-        .unwrap()
-}
+        let para = client.add_chain(smoldot_light::AddChainConfig {
+            specification: para_spec,
+            json_rpc: smoldot_light::AddChainConfigJsonRpc::Enabled {
+                max_pending_requests: std::num::NonZero::new(u32::MAX).unwrap(),
+                max_subscriptions: u32::MAX,
+            },
+            database_content: "",
+            potential_relay_chains: std::iter::once(relay.chain_id),
+            user_data: (),
+            statement_protocol_config: None,
+        }).map_err(|e| JsError::new(&format!("Failed to add parachain: {e}")))?;
 
-fn query_param(key: &str) -> Option<String> {
-    let loc = web_sys::window().unwrap().location();
-    // Try query string first, fall back to hash (serve strips query params on .html redirects)
-    for raw in [loc.search().ok(), loc.hash().ok().map(|h| h.replacen('#', "?", 1))] {
-        if let Some(s) = raw {
-            if let Some(v) = web_sys::UrlSearchParams::new_with_str(&s).ok()?.get(key) {
-                return Some(v);
+        Ok(WasmProvider {
+            client: Arc::new(Mutex::new(client)),
+            relay_chain_id: relay.chain_id,
+            para_chain_id: para.chain_id,
+            responses: para.json_rpc_responses,
+        })
+    }
+
+    /// Start streaming JSON-RPC responses to the given callback.
+    /// The callback receives raw JSON strings.
+    pub fn start(&mut self, on_response: js_sys::Function) {
+        let mut responses = self.responses.take()
+            .expect("start() must only be called once");
+
+        wasm_bindgen_futures::spawn_local(async move {
+            while let Some(response) = responses.next().await {
+                let _ = on_response.call1(
+                    &JsValue::NULL,
+                    &JsValue::from_str(&response),
+                );
             }
+        });
+    }
+
+    /// Send a JSON-RPC request (as a raw JSON string).
+    pub fn send(&self, request: &str) {
+        let mut client = self.client.lock().expect("Mutex is poisoned");
+        if let Err(e) = client.json_rpc_request(request, self.para_chain_id) {
+            web_sys::console::error_1(
+                &format!("json_rpc_request failed: {e}").into(),
+            );
         }
     }
-    None
-}
 
-async fn run_light_client() {
-    let status = el("status");
-    let list = el("blocks");
-    let t0 = now();
-
-    status.set_text_content(Some("Starting light client (relay chain)..."));
-    let (lc, _relay_rpc) = LightClient::relay_chain(POLKADOT_SPEC).unwrap();
-
-    status.set_text_content(Some(&format!("Adding Asset Hub parachain... ({:.1}s)", now() - t0)));
-    let asset_hub_rpc = lc.parachain(ASSET_HUB_SPEC).unwrap();
-
-    status.set_text_content(Some(&format!("Fetching metadata... ({:.1}s)", now() - t0)));
-    let api = OnlineClient::<PolkadotConfig>::from_rpc_client(asset_hub_rpc)
-        .await
-        .unwrap();
-    let init_time = now() - t0;
-
-    status.set_text_content(Some(&format!("Ready in {:.1}s, syncing...", init_time)));
-
-    let mut blocks = api.stream_all_blocks().await.unwrap();
-    let mut first_block_time = None;
-    while let Some(Ok(block)) = blocks.next().await {
-        let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
-        status.set_text_content(Some(&format!(
-            "#{} (init {:.1}s, first block {:.1}s)",
-            block.number(), init_time, fbt
-        )));
-        append_block(&list, block.number(), block.hash());
-    }
-}
-
-async fn run_rpc(url: &str) {
-    let status = el("status");
-    let list = el("blocks");
-    let t0 = now();
-
-    status.set_text_content(Some(&format!("Connecting to {url}...")));
-    let api = OnlineClient::<PolkadotConfig>::from_url(url).await.unwrap();
-    let init_time = now() - t0;
-
-    status.set_text_content(Some(&format!("Connected in {:.1}s, waiting for blocks...", init_time)));
-
-    let mut blocks = api.stream_all_blocks().await.unwrap();
-    let mut first_block_time = None;
-    while let Some(Ok(block)) = blocks.next().await {
-        let fbt = *first_block_time.get_or_insert_with(|| now() - t0);
-        status.set_text_content(Some(&format!(
-            "#{} (init {:.1}s, first block {:.1}s)",
-            block.number(), init_time, fbt
-        )));
-        append_block(&list, block.number(), block.hash());
-    }
-}
-
-#[wasm_bindgen(start)]
-pub async fn main() {
-    if let Some(url) = query_param("rpc") {
-        run_rpc(&url).await;
-    } else {
-        run_light_client().await;
+    /// Disconnect and clean up both chains.
+    pub fn disconnect(&self) {
+        let mut client = self.client.lock().expect("Mutex is poisoned");
+        let _ = client.remove_chain(self.para_chain_id);
+        let _ = client.remove_chain(self.relay_chain_id);
     }
 }
